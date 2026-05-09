@@ -41,3 +41,11 @@ app-example
 # generated native folders
 /ios
 /android
+
+
+# ignore backend files
+/backend/data
+/backend/db.sqlite3
+/backend/__pycache__
+/backend/venv
+/backend/.env
