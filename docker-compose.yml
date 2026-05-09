@@ -10,9 +10,9 @@ services:
       - EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0
     volumes:
       - ./frontend:/app
-      - /app/node_modules
-    # command: npx expo start --tunnel --clear
-    command: npx expo start --clear --tunnel
+      # - /app/node_modules
+    command: npx expo start --tunnel --clear
+    # command: npx expo start --clear --lan
     stdin_open: true
     tty: true
 
@@ -23,12 +23,28 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    # depends_on:
-    #   - frontend
 
     volumes:
       - ./backend:/app
-      - ./backend/data:/app/data
     
+    depends_on:
+      - db
+      - frontend
     env_file:
       - .env
+
+  db:
+    # we can not use pg vector if we dont wnat since we are not leveraging it
+    image: ankane/pgvector
+    container_name: studyguider_db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME}
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
