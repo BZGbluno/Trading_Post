@@ -1,24 +1,26 @@
-# Use the official Node.js image as the base image
+# Use the official Node.js image
 FROM node:20-alpine
 
-# Set the working directory inside the container
+# Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy package files
 COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Install ngrok globally for tunnel mode
+# Install Expo ngrok support
 RUN npm install -g @expo/ngrok@^4.1.0
 
-# Copy the entire application code
+# Copy app source
 COPY . .
 
-# Expose the port your application runs on
+# Expo / Metro ports
 EXPOSE 8081
+EXPOSE 19000
+EXPOSE 19001
+EXPOSE 19002
 
-#   command: npx expo start --clear --tunnel
-# Command to run your application
-CMD ["npx", "expo", "start", "--clear", "--tunnel"]
+# Start Expo
+CMD ["npx", "expo", "start", "--lan", "--clear"]
