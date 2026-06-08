@@ -7,7 +7,6 @@ import asyncio
 max_retries = 10
 retry_delay = 2
 
-
 async def init_db():
     """
     Initializes and sets up the PostgreSQL database schema, including required tables and extensions.
@@ -20,7 +19,11 @@ async def init_db():
     ---------------
 
     """
-
+    print(
+        os.getenv("DATABASE_HOST"),
+        os.getenv("DATABASE_NAME"),
+        os.getenv("DATABASE_USER")
+    )
     for attempt in range(max_retries):
         try:
             conn = await asyncpg.connect(
@@ -63,7 +66,7 @@ async def init_db():
 
         except Exception as e:
             print(
-                f"Attempt {attempt+1}/{max_retries}: Database not ready, retrying in {retry_delay}s..."
+                f"Attempt {attempt+1}/{max_retries}: {e}"
             )
             await asyncio.sleep(retry_delay)
 

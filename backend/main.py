@@ -1,8 +1,11 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
 from api.health_check import router as health_check_router
+from logging_config import setup_logging
+from api.users import router as user_router
 
-
+# initiate logger
+setup_logging()
 
 # start app
 app = FastAPI()
@@ -10,11 +13,11 @@ app = FastAPI()
 
 # Register endpoints
 app.include_router(health_check_router)
+app.include_router(user_router)
 
 
-# Change this to match your frontend port (8081)
-origins = [
-]
+# Change this to match your incoming services ports
+origins = []
 
 # Add CORS middleware to allow frontend to connect
 app.add_middleware(

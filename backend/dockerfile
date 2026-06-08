@@ -15,6 +15,8 @@ COPY . .
 # Install dependencies (if you have requirements.txt)
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN pip install httpx
+
 EXPOSE 8000
 
 # RUN mkdir -p /app/data
