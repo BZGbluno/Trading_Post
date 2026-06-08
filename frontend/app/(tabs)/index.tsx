@@ -19,7 +19,8 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text>{email}</Text>
+      {/* <Text>{email}</Text> */}
+      <Text>po</Text>
     </View>
   );
 }

@@ -21,4 +21,5 @@ EXPOSE 8081
 
 #   command: npx expo start --clear --tunnel
 # Command to run your application
+# CMD ["npm", "start", "--clear", "--tunnel"]
 CMD ["npx", "expo", "start", "--clear", "--tunnel"]

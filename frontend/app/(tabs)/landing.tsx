@@ -1,9 +1,9 @@
 import { View, Text, StyleSheet } from "react-native";
 
-export default function ExploreScreen() {
+export default function LandingScreen() {
   return (
     <View style={styles.container}>
-      <Text>Explor Screen</Text>
+      <Text>Landing Screen</Text>
     </View>
   );
 }

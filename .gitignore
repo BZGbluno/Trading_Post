@@ -49,3 +49,4 @@ app-example
 /backend/__pycache__
 /backend/venv
 /backend/.env
+/backend/api/__pycache__
