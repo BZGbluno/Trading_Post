@@ -61,8 +61,16 @@ async def init_db():
                     sender_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     receiver_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     body TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT NOW()
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    delivered_at TIMESTAMP,
+                    read_at TIMESTAMP
                 );
+            """
+
+            messagesMigration = """
+                ALTER TABLE messages
+                    ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP,
+                    ADD COLUMN IF NOT EXISTS read_at TIMESTAMP;
             """
 
             messagesIndex = """
@@ -73,11 +81,60 @@ async def init_db():
                     created_at DESC
                 );
             """
+
+            pushTokensTable = """
+                CREATE TABLE IF NOT EXISTS push_tokens (
+                    id SERIAL PRIMARY KEY,
+                    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    token TEXT UNIQUE NOT NULL,
+                    platform VARCHAR(20) NOT NULL,
+                    provider VARCHAR(20) NOT NULL DEFAULT 'expo',
+                    device_id TEXT,
+                    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    last_used_at TIMESTAMP
+                );
+            """
+
+            pushTokensIndex = """
+                CREATE INDEX IF NOT EXISTS idx_push_tokens_active_user
+                ON push_tokens (user_id)
+                WHERE is_active = TRUE;
+            """
+
+            pushNotificationJobsTable = """
+                CREATE TABLE IF NOT EXISTS push_notification_jobs (
+                    id SERIAL PRIMARY KEY,
+                    message_id INT UNIQUE NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+                    recipient_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                    attempts INT NOT NULL DEFAULT 0,
+                    available_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    locked_at TIMESTAMP,
+                    processed_at TIMESTAMP,
+                    last_error TEXT,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    CONSTRAINT push_notification_jobs_status_check
+                        CHECK (status IN ('pending', 'processing', 'sent', 'failed'))
+                );
+            """
+
+            pushNotificationJobsIndex = """
+                CREATE INDEX IF NOT EXISTS idx_push_notification_jobs_pending
+                ON push_notification_jobs (available_at, id)
+                WHERE status = 'pending';
+            """
             
 
             await conn.execute(usersTable)
             await conn.execute(messagesTable)
+            await conn.execute(messagesMigration)
             await conn.execute(messagesIndex)
+            await conn.execute(pushTokensTable)
+            await conn.execute(pushTokensIndex)
+            await conn.execute(pushNotificationJobsTable)
+            await conn.execute(pushNotificationJobsIndex)
 
 
             await conn.close()

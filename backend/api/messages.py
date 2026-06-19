@@ -17,6 +17,10 @@ class SendMessageRequest(BaseModel):
     body: str = Field(min_length=1, max_length=5000)
 
 
+class ReadMessageRequest(BaseModel):
+    receiver_id: int
+
+
 def serialize_message(row: asyncpg.Record):
     return {
         "id": row["id"],
@@ -26,6 +30,12 @@ def serialize_message(row: asyncpg.Record):
         "created_at": row["created_at"].isoformat()
         if isinstance(row["created_at"], datetime)
         else row["created_at"],
+        "delivered_at": row["delivered_at"].isoformat()
+        if isinstance(row["delivered_at"], datetime)
+        else row["delivered_at"],
+        "read_at": row["read_at"].isoformat()
+        if isinstance(row["read_at"], datetime)
+        else row["read_at"],
     }
 
 
@@ -39,11 +49,14 @@ async def get_connection():
 
 
 async def notify_user(user_id: int, event: dict):
+    delivered_count = 0
     for websocket in active_connections.get(user_id, []).copy():
         try:
             await websocket.send_json(event)
+            delivered_count += 1
         except Exception:
             active_connections[user_id].remove(websocket)
+    return delivered_count
 
 
 @router.post("/messages", status_code=201)
@@ -67,22 +80,58 @@ async def send_message(request: SendMessageRequest):
         if not sender_exists or not receiver_exists:
             raise HTTPException(status_code=404, detail="Sender or receiver does not exist")
 
-        row = await conn.fetchrow(
-            """
-            INSERT INTO messages (sender_id, receiver_id, body)
-            VALUES ($1, $2, $3)
-            RETURNING id, sender_id, receiver_id, body, created_at;
-            """,
-            request.sender_id,
-            request.receiver_id,
-            request.body,
-        )
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                """
+                INSERT INTO messages (sender_id, receiver_id, body)
+                VALUES ($1, $2, $3)
+                RETURNING
+                    id,
+                    sender_id,
+                    receiver_id,
+                    body,
+                    created_at,
+                    delivered_at,
+                    read_at;
+                """,
+                request.sender_id,
+                request.receiver_id,
+                request.body,
+            )
+
+            await conn.execute(
+                """
+                INSERT INTO push_notification_jobs (message_id, recipient_id)
+                VALUES ($1, $2);
+                """,
+                row["id"],
+                request.receiver_id,
+            )
 
         message = serialize_message(row)
         event = {"type": "message.created", "message": message}
 
-        await notify_user(request.receiver_id, event)
+        delivered_count = await notify_user(request.receiver_id, event)
         await notify_user(request.sender_id, event)
+
+        if delivered_count:
+            row = await conn.fetchrow(
+                """
+                UPDATE messages
+                SET delivered_at = COALESCE(delivered_at, NOW())
+                WHERE id = $1
+                RETURNING
+                    id,
+                    sender_id,
+                    receiver_id,
+                    body,
+                    created_at,
+                    delivered_at,
+                    read_at;
+                """,
+                row["id"],
+            )
+            message = serialize_message(row)
 
         return message
 
@@ -111,7 +160,14 @@ async def get_messages(
 
         rows = await conn.fetch(
             """
-            SELECT id, sender_id, receiver_id, body, created_at
+            SELECT
+                id,
+                sender_id,
+                receiver_id,
+                body,
+                created_at,
+                delivered_at,
+                read_at
             FROM messages
             WHERE (
                 (sender_id = $1 AND receiver_id = $2)
@@ -130,6 +186,49 @@ async def get_messages(
 
         return [serialize_message(row) for row in reversed(rows)]
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if conn is not None:
+            await conn.close()
+
+
+@router.post("/messages/{message_id}/read")
+async def mark_message_read(message_id: int, request: ReadMessageRequest):
+    conn = None
+    try:
+        conn = await get_connection()
+        row = await conn.fetchrow(
+            """
+            UPDATE messages
+            SET delivered_at = COALESCE(delivered_at, NOW()),
+                read_at = COALESCE(read_at, NOW())
+            WHERE id = $1 AND receiver_id = $2
+            RETURNING
+                id,
+                sender_id,
+                receiver_id,
+                body,
+                created_at,
+                delivered_at,
+                read_at;
+            """,
+            message_id,
+            request.receiver_id,
+        )
+
+        if row is None:
+            raise HTTPException(status_code=404, detail="Message not found for receiver")
+
+        message = serialize_message(row)
+        await notify_user(
+            row["sender_id"],
+            {"type": "message.read", "message": message},
+        )
+        return message
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
