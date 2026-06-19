@@ -54,9 +54,30 @@ async def init_db():
                     following INT default 0
                 );
             """
+
+            messagesTable = """
+                CREATE TABLE IF NOT EXISTS messages (
+                    id SERIAL PRIMARY KEY,
+                    sender_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    receiver_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    body TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW()
+                );
+            """
+
+            messagesIndex = """
+                CREATE INDEX IF NOT EXISTS idx_messages_direct_thread
+                ON messages (
+                    LEAST(sender_id, receiver_id),
+                    GREATEST(sender_id, receiver_id),
+                    created_at DESC
+                );
+            """
             
 
             await conn.execute(usersTable)
+            await conn.execute(messagesTable)
+            await conn.execute(messagesIndex)
 
 
             await conn.close()

@@ -30,7 +30,7 @@ services:
     container_name: backend1
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     ports:
       - "8000:8000"
 
@@ -48,7 +48,7 @@ services:
     image: ankane/pgvector
     container_name: items_db
     ports:
-      - "5432:5432"
+      - "${DATABASE_PORT}:5432"
     environment:
       POSTGRES_DB: ${DATABASE_NAME}
       POSTGRES_USER: ${DATABASE_USER}
