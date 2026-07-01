@@ -14,7 +14,7 @@ async function handleSignup() {
     await AsyncStorage.setItem("password", password);
 
     // router.replace("/(tabs)");
-    router.push("/fill_profile");
+    router.push("/profile_setup");
   } catch (error) {
     console.log(error);
   }
@@ -42,7 +42,7 @@ async function handleSignup() {
       />
 
 
-      <Button title="Sign Up" onPress={handleSignup} />
+      <Button title="Nice to Meet You" onPress={handleSignup} />
     </View>
   );
 }
